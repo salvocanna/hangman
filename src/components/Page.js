@@ -1,6 +1,5 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-// import serialize from 'serialize-javascript';
 
 class Page extends React.Component {
     static propTypes = {
@@ -9,13 +8,12 @@ class Page extends React.Component {
         styles: PropTypes.arrayOf(PropTypes.string.isRequired),
         scripts: PropTypes.arrayOf(PropTypes.string.isRequired),
         app: PropTypes.object,
-        // children: PropTypes.string.isRequired,
     };
     static defaultProps = {
         title: '',
         styles: [],
         scripts: [],
-        description: 'Hangman game in node and react with realt time messaging'
+        description: 'Hangman game in node and react with real time messaging'
     };
     render() {
         const { title, description, styles, scripts, app, children } = this.props;
@@ -34,7 +32,6 @@ class Page extends React.Component {
             </head>
             <body>
                 <div id="app" dangerouslySetInnerHTML={{ __html: children }} />
-                {/*<script dangerouslySetInnerHTML={{ __html: `window.App=${serialize(app)}` }} />*/}
                 {scripts.map(script => <script key={script} src={script} />)}
             </body>
             </html>

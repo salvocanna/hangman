@@ -1,6 +1,6 @@
 import React from 'react';
-import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
 
 class Layout extends React.Component {
     render() {
@@ -28,7 +28,7 @@ class Layout extends React.Component {
                     <div>
                         { this.props.children }
                     </div>
-                    <div>Footer!</div>
+                    <div><hr /></div>
                 </div>
             </div>
         );

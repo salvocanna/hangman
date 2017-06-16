@@ -35,8 +35,9 @@ const defaultState = {
     timeBegin: 0,
 }
 
-
-//This is mostly used for incoming actions from websocket
+/**
+ * Main reducer: This is mostly used for incoming actions from websocket
+ */
 function main(state = defaultState, action) {
     console.info(state, action);
     switch (action.type) {
@@ -47,6 +48,7 @@ function main(state = defaultState, action) {
         case 'CLIENT_INFO':
             return { ...state, ...{
                 clientId: action.clientId,
+                // User name is not implement atm, but here's the right place for it
                 //name: action.name,
                 playedCount: action.playedCount,
             }};

@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types'
 
-class Keyboard  extends React.Component {
+class Keyboard extends React.Component {
     constructor() {
         super();
     };

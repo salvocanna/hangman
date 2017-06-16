@@ -1,12 +1,6 @@
-import React from 'react'
-import Layout from './Layout'
-import { Redirect } from 'react-router-dom'
-//import { createNewGame, getPreviousPlayedIncompleteGames } from '../utils/gameHelper'
-import store from '../store'
-import { push } from 'react-router-redux'
-import PropTypes from 'prop-types'
-import { dispatcher } from '../utils/connectionClient'
-import moment from 'moment'
+import React from 'react';
+import moment from 'moment';
+import { dispatcher } from '../utils/connectionClient';
 
 class GameTable extends React.Component {
     resumeGame(game) {
@@ -15,15 +9,20 @@ class GameTable extends React.Component {
             gameId: game.gameId,
         });
     }
-    deleteGame(game) {
+    deleteGame(game, e) {
+        // Prevent from messing with the scrolling
+        e.preventDefault();
+        e.stopPropagation();
+
         dispatcher({
             type: 'DELETE_GAME_REQUEST',
             gameId: game.gameId,
         });
     }
     render() {
-        const {games = [], title = "Games list", displayUser = false} = this.props;
+        const { games = [], title = "Games list" } = this.props;
         const sortedGames = games.sort((a, b) => a.timeBegin > b.timeBegin ? -1 : 1);
+
         return (
             <div className="row">
                 <div className="col-xs-12">
@@ -33,41 +32,14 @@ class GameTable extends React.Component {
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    {displayUser ? <th>User</th> : null}
                                     <th>Status</th>
                                     <th>Word</th>
-                                    <th></th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {sortedGames.map(game => (
-                                    <tr>
-                                        <td>{moment.unix(game.timeBegin).format("MMMM Do, h:mm:ss a")}</td>
-                                        {displayUser ? <td>{game.clientName}</td> : null}
-                                        <td>
-                                            {game.result === 'win' &&
-                                            <span className="label label-success">Won</span>}
-                                            {game.result === 'lost' &&
-                                            <span className="label label-warning">Lost</span>}
-                                            {game.result === null &&
-                                            <span className="label label-default">Incomplete</span>}
-                                        </td>
-                                        <td><pre style={{display: 'inline-block'}}>{game.word}</pre></td>
-                                        <td>
-                                            <div className="btn-group btn-group-xs">
-                                                {game.result === null &&
-                                                <a href="#" className="btn btn-info btn-sm btn-success"
-                                                    onClick={this.resumeGame.bind(null, game)}>
-                                                    play
-                                                </a>}
-
-                                                <a href="#" className="btn btn-info btn-sm btn-danger"
-                                                   onClick={this.deleteGame.bind(null, game)}>
-                                                    delete
-                                                </a>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    <TableRow game={game} resumeGame={this.resumeGame} deleteGame={this.deleteGame} />
                                 ))}
                             </tbody>
                         </table>
@@ -77,5 +49,34 @@ class GameTable extends React.Component {
         );
     }
 }
+
+const TableRow = ({game, resumeGame, deleteGame}) => (
+    <tr>
+        <td>{moment.unix(game.timeBegin).format("MMMM Do, h:mm:ss a")}</td>
+        <td>
+            {game.result === 'win' &&
+            <span className="label label-success">Won</span>}
+            {game.result === 'lost' &&
+            <span className="label label-warning">Lost</span>}
+            {game.result === null &&
+            <span className="label label-default">Incomplete</span>}
+        </td>
+        <td><pre style={{display: 'inline-block'}}>{game.word}</pre></td>
+        <td>
+            <div className="btn-group btn-group-xs">
+                {game.result === null &&
+                <a href="#" className="btn btn-info btn-sm btn-success"
+                   onClick={resumeGame.bind(null, game)}>
+                    play
+                </a>}
+
+                <a href="#" className="btn btn-info btn-sm btn-danger"
+                   onClick={deleteGame.bind(null, game)}>
+                    delete
+                </a>
+            </div>
+        </td>
+    </tr>
+);
 
 export default GameTable;

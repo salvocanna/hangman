@@ -1,19 +1,11 @@
-import React from 'react'
-import Layout from './Layout'
-import { Redirect } from 'react-router-dom'
-//import { createNewGame, getPreviousPlayedIncompleteGames } from '../utils/gameHelper'
-import store from '../store'
-import { push } from 'react-router-redux'
-import PropTypes from 'prop-types'
-import { dispatcher } from '../utils/connectionClient'
-import { connect } from 'react-redux'
-import GameTable from "./GameTable";
+import React from 'react';
+import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
+import Layout from './Layout';
+import { dispatcher } from '../utils/connectionClient';
+import GameTable from './GameTable';
 
 class Main extends React.Component {
-    constructor() {
-        super();
-    };
-
     onNewGameClick(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -70,6 +62,7 @@ class Main extends React.Component {
                     {previousGames !== null && previousGames.length > 0 && <div>
                         <GameTable games={previousGames} title="Your previously played games" />
                     </div>}
+
                     {previousGames !== null && previousGames.length === 0 && <div>
                         You haven't played any game! Go on and start a new one!
                     </div>}
@@ -81,7 +74,7 @@ class Main extends React.Component {
 }
 
 Main.contextTypes = {
-    router: PropTypes.object
+    router: PropTypes.object,
 };
 
 export default connect(state => state)(Main);

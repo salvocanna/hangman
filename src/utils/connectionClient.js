@@ -1,11 +1,11 @@
+import { push } from 'react-router-redux';
 import SocketIOClient from 'socket.io-client';
 import { updateOnlineClients, gameBegin, gameOver, duplicateClientPause, duplicateClientPlay,
-    syncGame, loadPreviousGames, genericError, connectionLost, goManagement, allGamesResult } from '../actionCreator'
-import { push } from 'react-router-redux'
+    syncGame, loadPreviousGames, genericError, connectionLost, goManagement, allGamesResult } from '../actionCreator';
 export const socket = SocketIOClient();
 
 
-export const dispatcher = ({type, ...args}) => {
+export const dispatcher = ({ type, ...args }) => {
     socket.emit(type, args);
 };
 
@@ -21,14 +21,16 @@ export const dispatcher = ({type, ...args}) => {
 export default function(store) {
 
     socket.on('UPDATE_CLIENTS_COUNT', (object) => {
-        console.info("JUST RECEIVED THIS FROM WS", object);
         store.dispatch(updateOnlineClients(object.count));
     });
 
     socket.on('GAME_BEGIN', (object) => {
         store.dispatch(gameBegin(object));
-        //is this even a good place for this? Which one should it be? the 'pure' store itself?
-        //It has to be it's own action, so before or after the `newGameBegin` could be the same...
+        // Is this even a good place for this? Where should it be? The 'pure' store itself?!
+        // It has to be it's own action, so before or after the `gameBegin` could be the same...
+        // I ideally, overnight, I had an epiphany and I think this could go in its own
+        // websocket action. I mean, if the server wanna redirect you somewhere, doesn't it have
+        // the right to do so? Meh.
         store.dispatch(push(`/game/${object.gameId}`));
     });
 
@@ -53,7 +55,7 @@ export default function(store) {
     socket.on('GO_MANAGEMENT_RESULT', (object) => {
         store.dispatch(goManagement(object.authorised));
         if (object.authorised) {
-            store.dispatch(push(`/management`));
+            store.dispatch(push('/management'));
         }
     });
 
@@ -67,17 +69,19 @@ export default function(store) {
     });
 
     socket.on('NEW_GAME_DENIED', (object) => {
+        // Old style alert. Love it 😂
+        // Also love how I'm ignoring the error message LOL
         alert('We are just having some trouble right now. Try logging in again perhaps!');
     });
 
 
     socket.on('disconnect', () => {
+        // Let's notify the user!
         store.dispatch(connectionLost(true));
     });
 
     socket.on('connect', () => {
-        //Yay!
+        // Yay! We're back.
         store.dispatch(connectionLost(false));
-    })
-
-};
+    });
+}

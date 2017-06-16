@@ -1,12 +1,12 @@
-import React from 'react'
-import Keyboard from './Keyboard'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import { dispatcher } from '../utils/connectionClient'
-import WordDisplay from "./WordDisplay";
-import { push } from 'react-router-redux'
-import store from '../store'
-
+import React from 'react';
+import { push } from 'react-router-redux';
+import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
+import { dispatcher } from '../utils/connectionClient';
+import Keyboard from './Keyboard';
+import Layout from './Layout';
+import WordDisplay from './WordDisplay';
+import store from '../store';
 
 class Game extends React.Component {
     constructor(props) {
@@ -55,7 +55,8 @@ class Game extends React.Component {
     }
 
     render() {
-        const { gameId, playing, result, word, realWord, lostMoves, lifeLeft = null, points, moves, level, timeBegin } = this.props.main;
+        const { gameId, playing, result, word, realWord, lostMoves, lifeLeft = null,
+            points, moves, level, timeBegin } = this.props.main;
 
         if (gameId === null) {
             return (
@@ -66,35 +67,36 @@ class Game extends React.Component {
         }
 
         return (
-            <div className="container">
-                <div className="row">
-                    <div className="col-xs-12" style={{textAlign: 'center', padding: '30px'}}>
-                        <div className="row">
-                            <div className="col-xs-12"  style={{padding: '30px'}}>
-                                <WordDisplay word={word} />
+            <Layout>
+                <div className="container">
+                    <div className="row">
+                        <div className="col-xs-12" style={{textAlign: 'center', padding: '30px'}}>
+                            <div className="row">
+                                <div className="col-xs-12"  style={{padding: '30px'}}>
+                                    <WordDisplay word={word} />
+                                </div>
                             </div>
-                        </div>
-                        <div className="row">
-                            <div className="col-xs-6">
-                                {lifeLeft !== null &&
-                                    <img src={`/public/${lifeLeft}.jpg`} style={{width: '100%', maxWidth: '300px'}} />}
-                            </div>
-                            <div className="col-xs-6" style={{textAlign: 'center'}}>
-                                You're playing game {gameId}
+                            <div className="row">
+                                <div className="col-xs-6">
+                                    {lifeLeft !== null &&
+                                        <img src={`/public/${lifeLeft}.jpg`} style={{width: '100%', maxWidth: '300px'}} />}
+                                </div>
+                                <div className="col-xs-6" style={{textAlign: 'center'}}>
+                                    You're playing game {gameId}
 
-                                <Keyboard onKeyClick={this.onKeyClick} notAvailableKeys={moves} />
+                                    <Keyboard onKeyClick={this.onKeyClick} notAvailableKeys={moves} />
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-            </div>
+            </Layout>
         );
     }
 }
 
 
-const gameOver = ({win, realWord}) => {
+const gameOver = ({ win, realWord }) => {
     return <div className="container">
         <div className="col-xs-12" style={{textAlign: 'center'}}>
             {win ? <h4>YOU WON! 🎉 🎉 🎉</h4> : <div>

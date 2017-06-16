@@ -1,5 +1,5 @@
-import client from './persistentDataHelper'
-import randomItemInArray from 'random-item-in-array'
+import randomItemInArray from 'random-item-in-array';
+import client from './persistentDataHelper';
 
 export function loadGame(gameId) {
     return new Promise((resolve, reject) => client.get(`game:${gameId}`, (err, object) => {
@@ -9,7 +9,7 @@ export function loadGame(gameId) {
             reject(err);
         }
     }));
-};
+}
 
 export async function saveGame(game) {
     return new Promise((resolve, reject) => client.set(`game:${game.gameId}`, JSON.stringify(game), (err, object) => {
@@ -19,7 +19,7 @@ export async function saveGame(game) {
             reject(err);
         }
     }));
-};
+}
 
 export function linkGameToClient(gameId, clientId) {
     return new Promise((resolve, reject) => client.sadd(`client:${clientId}`, gameId, (err, object) => {
@@ -29,14 +29,13 @@ export function linkGameToClient(gameId, clientId) {
             reject(err);
         }
     }));
-};
+}
 
 export async function getGamesForClient(clientId) {
     return new Promise((resolve, reject) => client.smembers(`client:${clientId}`, async (err, res) => {
         if (err === null) {
-            //let's hydrate them now!
-            let games = [];
-            console.info('getGamesForClient');
+            // let's hydrate them now!
+            const games = [];
             for (const gameId of res) {
                 try {
                     const game = await loadGame(gameId);
@@ -53,7 +52,7 @@ export async function getGamesForClient(clientId) {
             reject(err);
         }
     }));
-};
+}
 
 export async function deleteGame(gameId, clientId = null) {
     return new Promise((resolve, reject) => client.del(`game:${gameId}`, async (err, res) => {
@@ -66,13 +65,12 @@ export async function deleteGame(gameId, clientId = null) {
 };
 
 export async function getAllGames() {
-    //This is gonna be fun... DO NOT TRY THIS AT HOME LOL
+    // This is gonna be fun... DO NOT TRY THIS AT HOME LOL
 
     return new Promise((resolve, reject) => client.keys(`game:*`, async (err, res) => {
         if (err === null) {
-            //let's hydrate them now!
-            let games = [];
-            console.log("JUST GOT", res);
+            // let's hydrate them now!
+            const games = [];
             for (const gameId of res) {
                 try {
                     const game = await loadGame(gameId.substr('game:'.length));
@@ -86,7 +84,7 @@ export async function getAllGames() {
             reject(err);
         }
     }));
-};
+}
 
 export async function getRandomWord(minLength = 7, maxLength = 10) {
     if (minLength < 7 || maxLength > 15) {
@@ -95,8 +93,8 @@ export async function getRandomWord(minLength = 7, maxLength = 10) {
 
     return new Promise((resolve, reject) => client.zrangebyscore(`words`, minLength, maxLength, (err, res) => {
         if (err === null) {
-            //return true if there are no elements there!
-            //let's pick a random one!
+            // return true if there are no elements there!
+            // let's pick a random one!
             resolve(randomItemInArray(res));
         } else {
             reject(err);

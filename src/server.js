@@ -1,69 +1,79 @@
-const React = require('react');
-const ReactDOMServer = require('react-dom/server');
-
-const express = require('express');
-const app = express();
-const path = require('path');
-const port = process.env.PORT || 3000;
+import React from 'react';
+import ReactDOMServer from 'react-dom/server';
+import express from 'express';
 import Page from './components/Page';
-import newGame from './utils/gameGenerator'
+import newGame from './utils/gameGenerator';
+import assets from '../build/assets.json';
+import { storageNeedSync, updateWordsStorage } from '../src/utils/dictManagement';
+import { loadGame, saveGame, getAllGames, deleteGame } from './utils/gameHelper';
+import { getMaskedWord, syncGame, sendGameHistory, emitError, findAllClientsFromClientId } from './utils/socketHelper';
 
-import assets from '../build/assets.json'
+/**
+ * Why this huge file?
+ * I'm sorry.
+ *
+ * For sake of simplicity (KISS) and given the small size/count of
+ * all the socket events, I prefer keeping all the callbacks here.
+ *
+ * Not ideal. Blame me. I know. Open to suggestions tho!
+ *
+ */
 
-import { storageNeedSync, updateWordsStorage } from '../src/utils/dictManagement'
-import { loadGame, getGamesForClient, saveGame, getAllGames, deleteGame } from './utils/gameHelper'
+const app = express();
+const port = process.env.PORT || 3000;
 
 const scripts = [assets.client.js];
-const totalLifeAllowed = 6; /* Are 6 even enough? */
+const totalLifeAllowed = 6; /* Are 6 even enough?! xD */
 
 app.use('/public/', express.static('build/public'));
+const server = require('http').createServer(app);
 
-storageNeedSync().then(async (res) => {
-    if (res) {
+storageNeedSync().then(async (storageResult) => {
+    if (storageResult) {
         await updateWordsStorage();
     }
 
-    app.use('/', function(req, res) {
+    app.use('/', (req, res) => {
         res.send(ReactDOMServer.renderToStaticMarkup(<Page scripts={scripts} />));
     });
-
 }).catch((err) => {
-    console.error("Just got this huge error", err);
+    console.error('Just got this huge error', err);
 });
 
-
-const server = require('http').createServer(app);
-server.listen(port, function () {
+server.listen(port, () => {
     console.log('Server listening at port %d', port);
 });
 
 
 const io = require('socket.io')(server, {
     pingInterval: 5000,
-    pingTimeout: 11000
+    pingTimeout: 11000,
 });
 
 let numUsers = 0;
-let connectedKnownClients = [];
+const connectedKnownClients = [];
 
+/**
+ * Here you go, all the socket callbacks.
+ */
 io.on('connection', (socket) => {
+    // A new user, yay
     ++numUsers;
-    let connectionClientId = null,
-        currentlyPlayingGameId = null;
-
     console.log('New user connected!');
 
-    io.emit('UPDATE_CLIENTS_COUNT', { count: numUsers});
+    let connectionClientId = null;
+    let currentlyPlayingGameId = null;
+
+    io.emit('UPDATE_CLIENTS_COUNT', { count: numUsers });
 
     socket.on('NEW_GAME_REQUEST', async () => {
         if (!connectionClientId) {
-            //If I don't know who you are, you get no game!
+            // If I don't know who you are, you get no game!
             socket.emit('NEW_GAME_DENIED');
             return;
         }
 
-
-        const game = await newGame({clientId: connectionClientId, playing: true, lifeLeft: totalLifeAllowed});
+        const game = await newGame({ clientId: connectionClientId, playing: true, lifeLeft: totalLifeAllowed });
         currentlyPlayingGameId = game.gameId;
         socket.emit('GAME_BEGIN', game);
     });
@@ -85,22 +95,19 @@ io.on('connection', (socket) => {
 
 
     socket.on('GO_MANAGEMENT', () => {
-        //I have the opportunity here to decide if yes or no ...
-        // ...
-        socket.emit('GO_MANAGEMENT_RESULT', {authorised: true});
+        // I have the opportunity here to decide if authorize you or not ...
+        socket.emit('GO_MANAGEMENT_RESULT', { authorised: true });
     });
 
     socket.on('LOAD_ALL_GAMES', async () => {
-        //Retrieve all the games from somewhere!
+        // Retrieve all the games from somewhere!
         const allGames = await getAllGames();
         socket.emit('LOAD_ALL_GAMES_RESULT', allGames);
     });
 
-
     socket.on('LOAD_GAME', async (data) => {
         const gameId = data.gameId;
         currentlyPlayingGameId = gameId;
-        ///load it from wherever...
         const game = await loadGame(gameId);
 
         if (game === null) {
@@ -108,14 +115,15 @@ io.on('connection', (socket) => {
             return;
         }
 
-        //Set playing : true!
+        // Set playing : true!
         game.playing = true;
         await saveGame(game);
 
-        //then let's answer our client
+        // Then let's answer our client
         syncGame(game, socket);
 
-        //Update it in background! (this will add the new one... )
+        // ...and update the user game history in background!
+        // (this will add the new one just created... )
         sendGameHistory(connectionClientId, socket);
     });
 
@@ -133,95 +141,82 @@ io.on('connection', (socket) => {
         const game = await loadGame(currentlyPlayingGameId);
 
         if (game.playing === false || game.result !== null || game.moves.indexOf(char) > -1) {
-            //How did the frontend allow you do this action?!
+            // How did the frontend allow you do this action?!
             return null;
         }
 
-        //Save for reference.
+        // Save for reference.
         game.moves.push(char);
 
 
-        //Check if move was successful
-        // if (game.realWord.toLowerCase().indexOf(char) < 0) {
-        //     //If you really lost it, so you lost it. Right? Lost. L o s t. Get over it.
-        //     ++game.lostMoves;
-        // }
-
-        //let's update the masked string
-        game.word = game.realWord.split('').map((char) => {
-            return game.moves.indexOf(char) > -1 ? char : '*';
-        }).join('');
-
-        // let discoveredChars = game.word.split('').reduce((acc, val) => {
-        //     return acc.indexOf(val) > -1 ? acc.push(val) : acc;
-        // });
+        // Let's update the masked string
+        game.word = getMaskedWord(game.realWord, game.moves);
 
         let allCharsDiscovered = game.word.length > 0;
-        game.word.split('').forEach((chr) => {
-            allCharsDiscovered = allCharsDiscovered && game.moves.indexOf(chr) > -1;
-        });
+        game.word
+            .split('')
+            .forEach((chr) => {
+                allCharsDiscovered = allCharsDiscovered && game.moves.indexOf(chr) > -1;
+            });
 
-        //Did you just lost?!
+        // Did you just lost?!
         let wrongChars = 0;
-        for (const usedChar of game.moves) {
+        game.moves.forEach((usedChar) => {
             wrongChars += (game.word.indexOf(usedChar) < 0) ? 1 : 0;
-        }
-
-        console.log("Wrong chars!", wrongChars, game.lifeLeft, totalLifeAllowed);
+        });
 
         game.lifeLeft = totalLifeAllowed - wrongChars;
 
         await saveGame(game);
 
-        //then answer the client!
+        // ... then answer the client!
         syncGame(game, socket);
 
         if (allCharsDiscovered) {
-            //Let's announce a winning game!
-            //update the game here...
+            // Let's announce a winning game!
+            // Update the game here...
             game.playing = false;
             game.result = 'win';
             game.end = Math.floor(new Date() / 1000);
 
             socket.emit('GAME_OVER', {result: 'win', realWord: game.realWord});
         } else if (game.lifeLeft < 1) {
-
-            //update the game here...
+            // user lost. booo!
             game.playing = false;
             game.result = 'lost';
             game.timeEnd = Math.floor(new Date() / 1000);
 
-            socket.emit('GAME_OVER', {result: 'lost', realWord: game.realWord});
+            socket.emit('GAME_OVER', { result: 'lost', realWord: game.realWord });
         }
 
         await saveGame(game);
 
-        //Update it in background!
+        // Update it in background!
         sendGameHistory(connectionClientId, socket);
     });
 
     socket.on('CLIENT_ID', async (client) => {
-        //let's see if the client has actually any games with us!
+        // Let's see if the client has actually any games with us!
         let clientId = client.id;
 
         if (!clientId) {
-            // No answer? My mama once told me never talk to strangers! LOL
+            // No answer? My mama once told me never talk to strangers!
             return;
         }
 
-        //let's save it as connection global!
+        // Let's save it as connection global! (not ideal perhaps)
         connectionClientId = clientId;
 
-        let clientsKnown = connectedKnownClients.filter(client => client.id === clientId);
+        const clientsKnown = connectedKnownClients.filter((client) => client.id === clientId);
 
-        //let's save it anyway, as we will need it an disconnect time!
-        connectedKnownClients.push({id: clientId, socket, date: new Date()});
+        // Let's save it anyway, as we will need it an disconnect time!
+        connectedKnownClients.push({ id: clientId, socket, date: new Date() });
 
         if (clientsKnown.length > 0) {
-            //Shoot! We already got a client with the same ID!
-            //Stop everything!
-            for (const client of clientsKnown) {
-                client.socket.emit('DUPLICATE_CLIENT_PAUSED');
+            // Shoot! We already got a client with the same ID!
+            // Stop everything!
+            for (const knownClient of clientsKnown) {
+                knownClient.socket.emit('DUPLICATE_CLIENT_PAUSED');
             }
             socket.emit('DUPLICATE_CLIENT_PAUSED');
             return;
@@ -235,8 +230,9 @@ io.on('connection', (socket) => {
         // WS should detect client disconnection in a fair way...
         --numUsers;
 
-        //let's first of all remove yourself! you dead m8!!
+        // Let's first of all remove yourself! you dead maan!!
         const selfIndex = connectedKnownClients.findIndex(client => client.socket === socket);
+
         // Just to be extra paranoid
         if (selfIndex > -1) {
             connectedKnownClients.splice(selfIndex, 1);
@@ -247,43 +243,17 @@ io.on('connection', (socket) => {
         if (connectionClientId) {
             const sameClientIdConnections = findAllClientsFromClientId(connectedKnownClients, connectionClientId);
             if (sameClientIdConnections.length > 1) {
-                //Still too many!
-                for (const client of sameClientIdConnections) {
+                // Still too many with same id!
+                sameClientIdConnections.forEach((client) => {
                     client.socket.emit('DUPLICATE_CLIENT_PAUSED');
-                }
+                });
             } else if (sameClientIdConnections.length === 1) {
                 sameClientIdConnections[0].socket.emit('DUPLICATE_CLIENT_PLAY');
             }
         }
 
-        console.info('connectedKnownClients', connectedKnownClients);
-
-        //we should be good to go now!
-        io.emit('UPDATE_CLIENTS_COUNT', { count: numUsers});
+        // Keep broadcasting the users count around!
+        io.emit('UPDATE_CLIENTS_COUNT', { count: numUsers });
     });
 });
 
-function findAllClientsFromClientId(list, clientId) {
-    return list.filter((item) => item.id && item.id === clientId);
-}
-
-
-function syncGame(game, socket) {
-    // Then emits your data!
-    socket.emit('SYNC_GAME', {...game, realWord: ((game.result === null) ? null : game.realWord)});
-}
-function emitError(errorMessage, socket) {
-    socket.emit('GENERIC_ERROR', errorMessage);
-}
-async function sendGameHistory(clientId, socket) {
-    // let's do a heavy intensive job here and find the user's games!
-    // all of this completely async! poor redis..
-
-    const games = (await getGamesForClient(clientId)).map(game => ({...game,
-        realWord: ((game.result === null) ? null : game.realWord)
-    }));
-
-    console.info("Just got client id and user games!", games);
-
-    socket.emit('GAME_HISTORY', games);
-}
