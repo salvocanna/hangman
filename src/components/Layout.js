@@ -1,6 +1,6 @@
 import React from 'react';
 import { connect } from 'react-redux'
-import Link from "../../../blog/src/components/Link/Link";
+import { Link } from 'react-router-dom'
 
 class Layout extends React.Component {
     render() {
